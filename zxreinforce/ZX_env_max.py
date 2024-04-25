@@ -21,8 +21,8 @@ class ZXCalculus():
                  check_consistencty:bool=False,
                  count_down_from:int=20,
                  dont_allow_stop:bool=False,
-                 extra_state_info:bool=True,
-                 adapted_reward:bool=True):
+                 extra_state_info:bool=False,
+                 adapted_reward:bool=False):
         """max_steps: maximum number of steps per trajectory,
         add_reward_per_step: reward added per step,
         resetter: object that can reset the environment,

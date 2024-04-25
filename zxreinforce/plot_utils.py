@@ -6,7 +6,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 from . import own_constants as oc
-from .ZX_env import get_neighbours
+from .ZX_env_max import get_neighbours
 from .action_conversion_utils import get_action_name, get_action_type_idx, get_action_target
 
 #Networkx utils------------------------------------------------------------------------------------

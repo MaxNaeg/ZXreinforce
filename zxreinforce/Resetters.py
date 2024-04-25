@@ -5,7 +5,7 @@ import numpy as np
 from .own_constants import (INPUT, OUTPUT, GREEN, RED, HADAMARD, 
                       ZERO, PI_half, PI, PI_three_half, ARBITRARY, NO_ANGLE,
                       ANGLE_LIST)
-from .ZX_env import apply_auto_actions, add_edge
+from .ZX_env_max import apply_auto_actions, add_edge
 
 
 class Resetter_ZERO_PI_PIHALF_ARB_hada():
