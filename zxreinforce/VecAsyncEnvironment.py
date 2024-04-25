@@ -11,7 +11,8 @@ from copy import deepcopy
 from enum import Enum
 from typing import List, Optional, Sequence, Tuple, Union
 
-from .ZX_env import ZXCalculus
+#from .ZX_env import ZXCalculus
+from .ZX_env_max import ZXCalculus
 
 
 
@@ -23,8 +24,11 @@ class VecZXCalculus():
                  n_envs:int=1,
                  max_steps:int=1000, 
                  add_reward_per_step:float=0.,
+                 count_down_from:int=20,
                  check_consistencty:bool=False,
-                 dont_allow_stop:bool=False):
+                 dont_allow_stop:bool=False,
+                 extra_state_info:bool=True,
+                 adapted_reward:bool=True):
         """resetter_list: list of resetters for the environments
         n_envs: number of environments to be created
         max_steps: maximum number of steps before environament resets,
@@ -37,7 +41,10 @@ class VecZXCalculus():
                                     add_reward_per_step=add_reward_per_step,
                                     resetter=resetter_list[idx],
                                     check_consistencty=check_consistencty,
-                                    dont_allow_stop=dont_allow_stop) for idx in range(n_envs)]
+                                    count_down_from=count_down_from,
+                                    dont_allow_stop=dont_allow_stop,
+                                    extra_state_info=extra_state_info,
+                                    adapted_reward=adapted_reward) for idx in range(n_envs)]
         
     def step(self, actions:np.ndarray) -> tuple:
         """actions: array of actions for each environment,

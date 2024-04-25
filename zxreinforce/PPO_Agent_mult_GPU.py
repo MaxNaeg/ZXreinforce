@@ -106,7 +106,7 @@ class PPOAgentPara():
                 "operation_seed": self.operation_seed,
                 "abs_grad_clip": self.abs_grad_clip}
     
-
+    @tf.function(reduce_retracing=True)
     def _get_distribution(self, observation:GraphTensor, mask:tf.constant)->tfp.distributions.Categorical:
         """observation: batched GraphTensor,
         mask: batched tf.bool, mask of valid actions,
@@ -204,7 +204,7 @@ class PPOAgentPara():
         # Returns is used to train critic, advantages to train actor.
         # returns = (R_t - V_t) + V_t = R_t
         # Q(s,a) - V(t) + V(t)
-        returns = advantages + values[:1]
+        returns = advantages + values[:-1]
 
 
         # Batch_indices

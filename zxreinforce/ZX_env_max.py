@@ -20,7 +20,9 @@ class ZXCalculus():
                  resetter=None,
                  check_consistencty:bool=False,
                  count_down_from:int=20,
-                 dont_allow_stop:bool=False):
+                 dont_allow_stop:bool=False,
+                 extra_state_info:bool=True,
+                 adapted_reward:bool=True):
         """max_steps: maximum number of steps per trajectory,
         add_reward_per_step: reward added per step,
         resetter: object that can reset the environment,
@@ -35,6 +37,9 @@ class ZXCalculus():
         self.resetter = resetter
         self.count_down_from = count_down_from
         self.dont_allow_stop = dont_allow_stop
+        self.extra_state_info = extra_state_info
+        self.adapted_reward = adapted_reward
+
  
 
     def load_observation(self, observation:tuple):
@@ -47,6 +52,7 @@ class ZXCalculus():
         self.previous_spiders = self.n_spiders
         self.current_spiders = self.n_spiders
         self.step_counter = 0
+        self.max_diff = 0
 
     def reset(self)->tuple:
         '''
@@ -71,6 +77,8 @@ class ZXCalculus():
         self.selected_edges = selected_edges
 
         self.step_counter = 0
+        self.max_diff = 0
+
 
         
 
@@ -114,7 +122,12 @@ class ZXCalculus():
         else:
             count_down = self.count_down_from
 
-        context_features = np.array([count_down, n_spider, n_red/n_spider, n_green/n_spider, n_hada/n_spider,
+        if self.extra_state_info:
+            info_state = self.max_diff
+        else:
+            info_state = 0.
+
+        context_features = np.array([count_down, info_state, n_spider, n_red/n_spider, n_green/n_spider, n_hada/n_spider,
                                        n_zero/n_spider, n_pi/n_spider, n_arb/n_spider, n_edges, minigame], dtype=np.float32)
         context_features = np.append(context_features, rel_action_counts)
 
@@ -144,12 +157,16 @@ class ZXCalculus():
         ## Add the step counter for stopping criteria
         self.step_counter += 1
 
-        # Check if trajetory is over
-        if (self.step_counter >= self.max_steps or 
-            action == N_EDGE_ACTIONS * self.n_edges + N_NODE_ACTIONS * self.n_spiders): 
+        # Check if trajectory is over
+        if (self.step_counter >= self.max_steps or
+            (action == N_EDGE_ACTIONS * self.n_edges + N_NODE_ACTIONS * self.n_spiders and not self.dont_allow_stop)
+            ): 
             # Return observation, mask and reward, end_episode
             observation, mask = self.reset()
             return observation, mask, 0, 1
+        elif action == N_EDGE_ACTIONS * self.n_edges + N_NODE_ACTIONS * self.n_spiders and self.dont_allow_stop:
+            observation, mask = self.get_observation_mask()
+            return observation, mask, 0, 0
         else:
             # Applies the action
             (mod_colors, mod_angles, mod_selected_node, mod_source, mod_target,
@@ -190,9 +207,21 @@ class ZXCalculus():
             self.current_spiders = self.n_spiders
             reward = self.delta_spiders()
 
+            if reward + self.max_diff >= 0:
+                reward_tilde = reward + self.max_diff
+                self.max_diff = 0
+            else:
+                reward_tilde = 0
+                self.max_diff = reward + self.max_diff
+
             # return observation, mask, reward, done
             observation, mask = self.get_observation_mask()
-            return observation, mask, reward + self.add_reward_per_step, 0
+            if self.adapted_reward:
+                rew_returned = reward_tilde + self.add_reward_per_step
+            else:
+                rew_returned = reward + self.add_reward_per_step
+
+            return observation, mask, rew_returned, 0
     
     def delta_spiders(self)->int:
         """returns reward"""
@@ -296,7 +325,10 @@ def get_mask_counts(colors, angles, selected_node, source, target, selected_edge
     mask_list = get_mask_list(colors, angles, selected_node, source, target, selected_edges, dont_allow_stop)
     rel_action_amounts = np.array([len(np.where(mask)[0]) for idx, mask in enumerate(mask_list)
                           if idx in relevant_action_count_idcs], dtype=np.float32)
-    rel_action_amounts = rel_action_amounts / norm_by
+    if not np.any(norm_by == 0):
+        rel_action_amounts = rel_action_amounts / norm_by
+    else:
+        rel_action_amounts = np.zeros_like(rel_action_amounts)
     
     # If start_Unmerge rule selected compute different mask
     if np.sum(selected_node) == 0:

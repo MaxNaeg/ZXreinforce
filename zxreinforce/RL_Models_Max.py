@@ -117,13 +117,13 @@ def build_gnn_actor_model(
         )(graph)
 
     # Stop counter
-    count_down = tf.gather(graph.context.features["context_feat"], [0,], axis=1)
+    count_down_max_diff = tf.gather(graph.context.features["context_feat"], tf.range(2), axis=1)
 
     # List holding logits of node, edge and stop action
     logit_list = []
     # Unnormalized logits for node actions
     # Add countdown to selection
-    count_down_nodes = tf.repeat(count_down, graph.node_sets['spiders'].sizes, axis=0)
+    count_down_nodes = tf.repeat(count_down_max_diff, graph.node_sets['spiders'].sizes, axis=0)
     logits_node_act = tf.keras.layers.Concatenate(axis=1)([graph.node_sets['spiders'][tfgnn.HIDDEN_STATE], 
                                                            count_down_nodes])
     logits_node_act = dense(hidden_action_dim, l2_regularization, dropout_rate, activation, 
@@ -136,7 +136,7 @@ def build_gnn_actor_model(
 
     # Unnormalized logits for edge actions
     # Add countdown to selection
-    count_down_edges = tf.repeat(count_down, graph.edge_sets['edges'].sizes, axis=0)
+    count_down_edges = tf.repeat(count_down_max_diff, graph.edge_sets['edges'].sizes, axis=0)
 
     logits_edge_act = tf.keras.layers.Concatenate(axis=1)([graph.edge_sets['edges'][tfgnn.HIDDEN_STATE], 
                                                            count_down_edges])
