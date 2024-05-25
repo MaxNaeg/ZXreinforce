@@ -1,5 +1,5 @@
 # ZXreinforce
-This project contains the code used to produce the results in the two publications: "Optimizing ZX-Diagrams with Deep Reinforcement Learning" (arxiv.org/abs/2311.18588) and "Tackling Decision Processes with Non-Cumulative Objectives using Reinforcement Learning".
+This project contains the code used to produce the results in the two publications: "Optimizing ZX-Diagrams with Deep Reinforcement Learning" (arxiv.org/abs/2311.18588) and "Tackling Decision Processes with Non-Cumulative Objectives using Reinforcement Learning" (https://arxiv.org/abs/2405.13609).
 
 * Main code of the algorithm is in zxreinforce
 
