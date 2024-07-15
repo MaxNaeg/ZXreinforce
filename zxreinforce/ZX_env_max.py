@@ -291,10 +291,10 @@ def check_consistent_diagram(colors, angles, selected_node, source, target, sele
     for idx, color in enumerate(colors):
         if np.all(color==np.array(INPUT)) or np.all(color==np.array(OUTPUT)):
             neigh = get_neighbours(idx, source, target)
-            assert len(neigh == 1), "input/output with multiple connected neighbours"
+            assert len(neigh) == 1, "input/output with multiple connected neighbours"
         elif np.all(color==np.array(HADAMARD)):
             neigh = get_neighbours(idx, source, target)
-            assert len(neigh == 2), "hadamard not with two neighbors"
+            assert len(neigh) == 2, "hadamard not with two neighbors"
 
     # Check that there are no disconnected nodes:
     input_idcs = np.where(np.all(colors == INPUT, axis=1))

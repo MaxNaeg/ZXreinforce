@@ -4,6 +4,8 @@ import numpy as np
 import copy
 from . import action_conversion_utils as acu
 from .VecAsyncEnvironment import VecZXCalculus 
+from .ZX_env_max import ZXCalculus, get_neighbours, check_consistent_diagram
+from .own_constants import INPUT, OUTPUT
         
 class GreedyCleverAgent():
     """This agent simplifies a ZX diagram by always choosing the action with the highest reward
@@ -32,7 +34,9 @@ class GreedyCleverAgent():
         initial_spiders = observation[0][-3]
         done = 0
         # Step while trajectory is no finished
+        i=0
         while done == 0:
+            i +=1
             next_observation, next_mask, reward, next_done = self.step(env)
             obs_list.append(observation)
             mask_list.append(mask)
@@ -63,6 +67,7 @@ class GreedyCleverAgent():
             action_name = acu.get_action_name(action_idx)
             # Make sure that unmerge rule and stop action are not chosen
             if  (action_name == "start_unmerge_rule" or 
+                 action_name == "stop_action" or
                  action_name == "stop_action"):
                 rewards[i] = -1
             else:
@@ -79,6 +84,53 @@ class GreedyCleverAgent():
             # Return action with maximal reward
             action = np.argmax(rewards)
             return valid_act_idcs[action]
+        
+class AfterPYZXAgent():
+    def simplify(self, env: ZXCalculus):
+        # Get mask to find valid actions
+        mask, _ = env.get_mask_counts()
+        # Unfuse all Hadamards that are on the inside of the diagram
+        found_unfuse = True
+        while found_unfuse:
+            found_unfuse = False
+            valid_act_idcs = np.where(mask)[0]
+            for i, action in enumerate(valid_act_idcs):
+                action_idx = acu.get_action_type_idx(len(env.colors), len(env.source), action)
+                action_name = acu.get_action_name(action_idx)
+                # Make sure that unmerge rule and stop action are not chosen
+                if (action_name == "split_hadamard"):
+                    target = acu.get_action_target(action, len(env.colors), len(env.source))
+                    # only unfuse middle hadamards
+                    # check_consistent_diagram(env.colors, env.angles, env.selected_node, env.source, env.target, env.selected_edges)
+                    neighbours = get_neighbours(target, env.source, env.target)
+                    assert len(neighbours) == 2, "Hadamard has to have two neighbours"
+                    # if len(neighbours) != 2:
+                    #     check_consistent_diagram(env.colors, env.angles, env.selected_node, env.source, env.target, env.selected_edges)
+                    if not (
+                        np.all(env.colors[neighbours[0]]  == INPUT) or
+                        np.all(env.colors[neighbours[0]]  == OUTPUT) or
+                        np.all(env.colors[neighbours[1]]  == INPUT) or
+                        np.all(env.colors[neighbours[1]]  == OUTPUT)
+                    ):
+                        observation_new, mask, reward, done = env.step(action)
+                        #check_consistent_diagram(*observation_new[:6])
+                        found_unfuse = True
+                        break
+        # merge all possible nodes
+        found_merge = True
+        while found_merge:
+            found_merge = False
+            valid_act_idcs = np.where(mask)[0]
+            for i, action in enumerate(valid_act_idcs):
+                action_idx = acu.get_action_type_idx(len(env.colors), len(env.source), action)
+                action_name = acu.get_action_name(action_idx)
+                # Make sure that unmerge rule and stop action are not chosen
+                if (action_name == "merge_rule"):
+                    observation_new, mask, reward, done = env.step(action)
+                    found_merge = True
+                    break
+        return env
+            
 
 
 class AnnealingAgent():
