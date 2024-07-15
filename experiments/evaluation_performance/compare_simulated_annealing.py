@@ -14,6 +14,8 @@ from time import time
 from zxreinforce.compare_agents import AnnealingAgent
 from zxreinforce.Resetters import Resetter_ZERO_PI_PIHALF_ARB_hada
 from zxreinforce.VecAsyncEnvironment import VecZXCalculus
+from zxreinforce.own_constants import ARBITRARY, HADAMARD
+
 
 add_reward_per_step = 0
 seed=0
@@ -38,14 +40,14 @@ temp=0.5
 max_steps=20000
 exp_fac=0.0001
 
-
+size = 10
 # Load list of observations to evaluate the agent on
-load_path_initial_obs_list= Path("../../saved_observations/initial_1000_obs_list_100_150.pkl")
+load_path_initial_obs_list= Path(f"../../saved_observations/initial_1000_obs_list_{size}_{int(size*1.5)}.pkl")
 with open(str(load_path_initial_obs_list), 'rb') as f:
     initial_obs_list = pickle.load(f)
 
 # Add to saved result
-add_save= f"100_{temp}_{max_steps}_{exp_fac}"
+add_save= f"{size}_{temp}_{max_steps}_{exp_fac}"
 
 
 # Load greedy agent
@@ -69,29 +71,42 @@ env = VecZXCalculus(resetter_list,
                     max_steps=max_steps, 
                     add_reward_per_step=add_reward_per_step,
                     check_consistencty=False,
-                    dont_allow_stop=True)
+                    dont_allow_stop=True,
+                    adapted_reward=False)
 
 reward_list_anneal = []
+diff_arbitrary_anneal = []
 
+print(f"Sim ann {add_save}")
 start_time = time()
 print(start_time, flush=True)
 
 for n, inital_obs in enumerate(initial_obs_list):
-    print(n, flush=True)
+    init_arbitrary = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[0][1]])
+    # print(n, flush=True)
     env.env_list[0].load_observation(*inital_obs)
-    _, _, rew_list_anneal, _ = anneal.optimize_env(env, temp, max_steps, anneal_type="exponential", 
+    obs_list, _, rew_list_anneal, _ = anneal.optimize_env(env, temp, max_steps, anneal_type="exponential", 
                                             exp_factor=exp_fac, 
                                             seed=seed, allow_stop_action=False, reset=False, 
                                             start_unm_neg_rew=True)
+    
+    obs = obs_list[-1]
+    final_arbitrary_pyzx_greedy = np.sum([np.all(angle == ARBITRARY) for angle in obs[1]])
+    diff_arbitrary_anneal.append([init_arbitrary - final_arbitrary_pyzx_greedy])
+
     reward_list_anneal.append(rew_list_anneal)
+
 
 end_time = time()
 print(end_time, flush=True)
 print(end_time-start_time, flush=True)       
 
 
-with open(f'results/reward_list_sim_ann'+add_save+'.pkl', 'wb') as f:
+with open(f'results_sim_ann/reward_list_sim_ann'+add_save+'.pkl', 'wb') as f:
     pickle.dump(reward_list_anneal, f)
+
+with open(f'results_sim_ann/diff_arbitrary_sim_ann'+add_save+'.pkl', 'wb') as f:
+    pickle.dump(diff_arbitrary_anneal, f)
 
 
 

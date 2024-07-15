@@ -22,6 +22,8 @@ from zxreinforce.Resetters import Resetter_ZERO_PI_PIHALF_ARB_hada
 from zxreinforce.PPO_Agent_mult_GPU import PPOAgentPara
 from zxreinforce.RL_Models_Max import build_gnn_actor_model, build_gnn_critic_model
 from zxreinforce.batch_utils import batch_mask_combined, batch_obs_combined_traj
+from zxreinforce.own_constants import ARBITRARY
+
 
 graph_schema = text_format.Merge(OBSERVATION_SCHEMA_ZX_MAX, schema_pb2.GraphSchema())
 graph_tensor_spec = tfgnn.create_graph_spec_from_schema_pb(graph_schema)
@@ -63,19 +65,19 @@ with open(str(load_path_initial_obs_list), 'rb') as f:
 # Load agent
 
 to_add_list = [
-               "no_clip_anneal_seed=0_20240412-204732",
-               "no_counter_seed=0_20240412-204606",
-               "no_entropy_anneal_seed=0_20240412-204700",
-               "no_entropy_seed=0_20240412-204634",
-               "no_kl_limit_seed=0_20240412-204905",
-               "no_stop_seed=0_20240422-120103",
-               "normal_seed=0_20240412-204251",
+            #    "no_clip_anneal_seed=0_20240412-204732",
+            #    "no_counter_seed=0_20240412-204606",
+            #    "no_entropy_anneal_seed=0_20240412-204700",
+            #    "no_entropy_seed=0_20240412-204634",
+            #    "no_kl_limit_seed=0_20240412-204905",
+            #    "no_stop_seed=0_20240422-120103",
+            #    "normal_seed=0_20240412-204251",
                "normal_seed=1_20240412-204341"
                ]
 
 for add_save in to_add_list:
     
-    load_path_agent = Path(f"../orig_paper/runs/{add_save}/saved_agent")
+    load_path_agent = Path(f"../../saved_agents/{add_save}/saved_agent")
 
     if "no_counter" in add_save:
         count_down_from=0
@@ -113,11 +115,15 @@ for add_save in to_add_list:
                         adapted_reward=False,)
 
     reward_list_agent = []
+    diff_arbitrary_agent = []
 
     start_time = time()
     print(f"starting {add_save}", flush=True)
     print(start_time, flush=True)
     for n, inital_obs in enumerate(initial_obs_list):
+        print(n, flush=True)
+
+        init_arbitrary = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[0][1]])
 
         env.env_list[0].load_observation(*inital_obs)
 
@@ -135,18 +141,25 @@ for add_save in to_add_list:
             # Take one step in the environment
             next_observation, next_mask, reward, next_done = env.step(action.numpy())
             # Update the observation, mask and done
+            final_arbitrary_pyzx = np.sum([np.all(angle == ARBITRARY) for angle in observation[0][1]])
+
             observation = next_observation
             done = next_done
             mask = next_mask
 
             reward_agent_list.append(reward)
+        
+        
 
         reward_list_agent.append(reward_agent_list)
+        diff_arbitrary_agent.append([init_arbitrary - final_arbitrary_pyzx])
 
     end_time = time()
     print(end_time, flush=True)
     print(end_time-start_time, flush=True)
 
-    add_save_final = add_save + f"_{size}_"
-    with open('results/reward_list_agent'+add_save_final+'.pkl', 'wb') as f:
+    add_save_final = add_save + f"_2_{size}_"
+    with open('results_rl/reward_list_agent'+add_save_final+'.pkl', 'wb') as f:
         pickle.dump(reward_list_agent, f)
+    with open('results_rl/diff_arbitrary_agent'+add_save_final+'.pkl', 'wb') as f:
+        pickle.dump(diff_arbitrary_agent, f)
