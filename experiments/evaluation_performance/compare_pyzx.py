@@ -39,7 +39,7 @@ fac = 1
 min_spiders=10 * fac
 max_spiders=15 * fac
 
-size = 10
+size = 100
 # Load list of observations to evaluate the agent on
 load_path_initial_obs_list= Path(f"../../saved_observations/initial_1000_obs_list_{size}_{int(size*1.5)}.pkl")
 with open(str(load_path_initial_obs_list), 'rb') as f:
@@ -57,7 +57,7 @@ diff_arbitrary_pyzx = []
 
 failed = []
 
-add_save= f"pyzx_{size}"
+add_save= f"pyzx_norm_{size}"
 print(add_save, flush=True)
 start_time = time()
 print(start_time, flush=True)
@@ -71,7 +71,9 @@ for n, inital_obs in enumerate(initial_obs_list):
         init_arbitrary = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[1]])
 
         graph = obs_to_pzx(inital_obs)
+        graph.normalize()
         from_hypergraph_form(graph)
+        graph.normalize()
         zx.full_reduce(graph, quiet=True)
         obs = pyzx_to_obs(graph)
 

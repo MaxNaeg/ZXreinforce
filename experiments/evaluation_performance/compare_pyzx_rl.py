@@ -1,0 +1,195 @@
+# Evaluate the greedy agent on a list of initial observations
+import sys
+sys.path.append("../../")
+sys.path.append("../../../")
+
+import pickle
+import keras
+
+
+from pathlib import Path
+import numpy as np
+from time import time
+import pyzx as zx
+from pyzx.hsimplify import from_hypergraph_form
+
+import tensorflow as tf
+import tensorflow_gnn as tfgnn
+import tensorflow_gnn.proto.graph_schema_pb2 as schema_pb2
+from google.protobuf import text_format
+
+
+from zxreinforce.rl_schemas import OBSERVATION_SCHEMA_ZX_MAX
+from zxreinforce.VecAsyncEnvironment import VecZXCalculus
+from zxreinforce.Resetters import Resetter_ZERO_PI_PIHALF_ARB_hada
+from zxreinforce.PPO_Agent_mult_GPU import PPOAgentPara
+from zxreinforce.RL_Models_Max import build_gnn_actor_model, build_gnn_critic_model
+from zxreinforce.batch_utils import batch_mask_combined, batch_obs_combined_traj
+from zxreinforce.own_constants import ARBITRARY
+from zxreinforce.ZX_env_max import ZXCalculus, apply_auto_actions, check_consistent_diagram, get_neighbours
+from zxreinforce.pyzx_utils import obs_to_pzx, pyzx_to_obs
+
+
+max_steps = 200
+n_envs = 1
+add_reward_per_step = 0
+
+seed=0
+
+# Params for initial env observations
+n_in_min=1
+n_in_max=3
+pi_fac=0.4
+pi_half_fac=0.4
+arb_fac=0.4
+p_hada=0.2
+min_mean_neighbours=2
+max_mean_neighbours=4
+fac = 1
+min_spiders=10 * fac
+max_spiders=15 * fac
+
+size = 100
+# Load list of observations to evaluate the agent on
+load_path_initial_obs_list= Path(f"../../saved_observations/initial_1000_obs_list_{size}_{int(size*1.5)}.pkl")
+with open(str(load_path_initial_obs_list), 'rb') as f:
+    initial_obs_list = pickle.load(f)
+
+# Load rl agent
+agent_name = "normal_seed=1_20240412-204341"
+load_path_agent = Path(f"../../saved_agents/{agent_name}/saved_agent")
+count_down_from=20
+
+
+graph_schema = text_format.Merge(OBSERVATION_SCHEMA_ZX_MAX, schema_pb2.GraphSchema())
+graph_tensor_spec = tfgnn.create_graph_spec_from_schema_pb(graph_schema)
+
+strategy = tf.distribute.MirroredStrategy(["GPU:0", "GPU:1"])
+
+
+with strategy.scope():
+    actor_model = build_gnn_actor_model(graph_tensor_spec=graph_tensor_spec)
+    critic_model = build_gnn_critic_model(graph_tensor_spec=graph_tensor_spec)
+    optimizer = keras.optimizers.Adam()
+
+load_idx = 400
+ppo_agent = PPOAgentPara.load_from_folder(load_path_agent, actor_model, critic_model, optimizer, strategy, load_idx)
+
+
+reward_list_pyzx_rl = []
+diff_arbitrary_pyzx_rl = []
+
+failed = []
+
+
+resetter = Resetter_ZERO_PI_PIHALF_ARB_hada(n_in_min,
+                                        n_in_max,
+                                        min_spiders,
+                                        max_spiders,
+                                        pi_fac,
+                                        pi_half_fac,
+                                        arb_fac,
+                                        p_hada,
+                                        min_mean_neighbours,
+                                        max_mean_neighbours,
+                                        np.random.default_rng(seed))
+
+
+env = VecZXCalculus([resetter],
+                        n_envs=n_envs, 
+                        max_steps=max_steps, 
+                        add_reward_per_step=add_reward_per_step,
+                        count_down_from=count_down_from,
+                        check_consistencty=False,
+                        dont_allow_stop=True,
+                        extra_state_info=False,
+                        adapted_reward=False,)
+
+
+add_save= f"pyzx_rl_norm_{size}"
+print(add_save, flush=True)
+
+start_time = time()
+print(start_time, flush=True)
+
+for n, inital_obs in enumerate(initial_obs_list):
+    print(n, flush=True)
+    try:
+        inital_obs = inital_obs[0]
+
+        init_spiders = len(inital_obs[0])
+        init_arbitrary = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[1]])
+
+        graph = obs_to_pzx(inital_obs)
+        graph.normalize()
+        from_hypergraph_form(graph)
+        graph.normalize()
+        zx.full_reduce(graph, quiet=True)
+        obs = pyzx_to_obs(graph)
+
+
+        (colors, angles, selected_node, source, target, 
+        selected_edges, n_nodes, n_edges, _) = obs
+
+        colors, angles, source, target = apply_auto_actions(colors, angles, source, target)
+        n_nodes = len(colors)
+        n_edges = len(source)
+        selected_node = np.zeros(n_nodes)
+        selected_edges = np.zeros(n_edges)
+
+        obs_new = (colors, angles, selected_node, source, target, 
+        selected_edges, n_nodes, n_edges, None)
+
+        reward_pyzx_auto = init_spiders - n_nodes
+        alpha = np.sum([np.all(angle == ARBITRARY) for angle in obs_new[1]])
+        reward_arb_pyzx_auto = init_arbitrary - alpha
+
+    
+        env.env_list[0].load_observation(obs_new)
+
+
+        observation, mask  = env.env_list[0].get_observation_mask()
+        observation = [observation]
+        mask = [mask]
+        done = np.zeros(n_envs, dtype=np.int32)
+        reward_agent_list = []
+        alpha_rew_agent_list = []
+        while done[0] !=1:
+
+            observation_batched = batch_obs_combined_traj(observation)
+            mask_batched = batch_mask_combined(mask)
+            # Get the logprobs, action
+            action, logprobability_t  = ppo_agent.sample_action_logits_trajectory(observation_batched, mask_batched)
+            # Take one step in the environment
+            next_observation, next_mask, reward, next_done = env.step(action.numpy())
+            # Update the observation, mask and done
+            new_alpha = np.sum([np.all(angle == ARBITRARY) for angle in next_observation[0][1]])
+            reward_alpha = alpha - new_alpha
+            alpha_rew_agent_list.append(reward_alpha)
+            alpha = new_alpha
+            
+
+            observation = next_observation
+            done = next_done
+            mask = next_mask
+
+            reward_agent_list.append(reward)
+        
+        
+
+        reward_list_pyzx_rl.append([reward_pyzx_auto] + reward_agent_list)
+        diff_arbitrary_pyzx_rl.append([reward_arb_pyzx_auto] + alpha_rew_agent_list)
+        
+
+    except ValueError as e:
+        failed.append(n)
+        print("Failed", n, e, flush=True)
+
+end_time = time()
+print(end_time, flush=True)
+print(end_time-start_time, flush=True)       
+
+with open('results_pyzx/reward_list'+add_save+'.pkl', 'wb') as f:
+    pickle.dump(reward_list_pyzx_rl, f)
+with open('results_pyzx/diff_arbitrary'+add_save+'.pkl', 'wb') as f:
+    pickle.dump(diff_arbitrary_pyzx_rl, f)

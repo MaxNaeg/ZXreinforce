@@ -123,7 +123,7 @@ for add_save in to_add_list:
     for n, inital_obs in enumerate(initial_obs_list):
         print(n, flush=True)
 
-        init_arbitrary = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[0][1]])
+        alpha = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[0][1]])
 
         env.env_list[0].load_observation(*inital_obs)
 
@@ -132,6 +132,7 @@ for add_save in to_add_list:
         mask = [mask]
         done = np.zeros(n_envs, dtype=np.int32)
         reward_agent_list = []
+        alpha_rew_agent_list = []
         while done[0] !=1:
 
             observation_batched = batch_obs_combined_traj(observation)
@@ -141,7 +142,10 @@ for add_save in to_add_list:
             # Take one step in the environment
             next_observation, next_mask, reward, next_done = env.step(action.numpy())
             # Update the observation, mask and done
-            final_arbitrary_pyzx = np.sum([np.all(angle == ARBITRARY) for angle in observation[0][1]])
+            new_alpha = np.sum([np.all(angle == ARBITRARY) for angle in next_observation[0][1]])
+            reward_alpha = alpha - new_alpha
+            alpha_rew_agent_list.append(reward_alpha)
+            alpha = new_alpha
 
             observation = next_observation
             done = next_done
@@ -152,14 +156,14 @@ for add_save in to_add_list:
         
 
         reward_list_agent.append(reward_agent_list)
-        diff_arbitrary_agent.append([init_arbitrary - final_arbitrary_pyzx])
+        diff_arbitrary_agent.append(alpha_rew_agent_list)
 
     end_time = time()
     print(end_time, flush=True)
     print(end_time-start_time, flush=True)
 
-    add_save_final = add_save + f"_2_{size}_"
-    with open('results_rl/reward_list_agent'+add_save_final+'.pkl', 'wb') as f:
+    add_save_final = add_save + f"_{size}_"
+    with open('results_rl/reward_list_agent_'+add_save_final+'.pkl', 'wb') as f:
         pickle.dump(reward_list_agent, f)
-    with open('results_rl/diff_arbitrary_agent'+add_save_final+'.pkl', 'wb') as f:
+    with open('results_rl/diff_arbitrary_agent_'+add_save_final+'.pkl', 'wb') as f:
         pickle.dump(diff_arbitrary_agent, f)

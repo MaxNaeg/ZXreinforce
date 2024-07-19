@@ -76,7 +76,7 @@ env = VecZXCalculus([resetter],
                     adapted_reward=False)
 
 
-add_save= f"pyzx_greedy_{size}"
+add_save= f"pyzx_greedy_norm_{size}"
 print(add_save, flush=True)
 
 start_time = time()
@@ -91,7 +91,9 @@ for n, inital_obs in enumerate(initial_obs_list):
         init_arbitrary = np.sum([np.all(angle == ARBITRARY) for angle in inital_obs[1]])
 
         graph = obs_to_pzx(inital_obs)
+        graph.normalize()
         from_hypergraph_form(graph)
+        graph.normalize()
         zx.full_reduce(graph, quiet=True)
         obs = pyzx_to_obs(graph)
 
@@ -127,7 +129,7 @@ end_time = time()
 print(end_time, flush=True)
 print(end_time-start_time, flush=True)       
 
-with open('results_pyzx/reward_list'+add_save+'.pkl', 'wb') as f:
+with open('results_pyzx/reward_list_10000_'+add_save+'.pkl', 'wb') as f:
     pickle.dump(reward_list_pyzx_greedy, f)
-with open('results_pyzx/diff_arbitrary'+add_save+'.pkl', 'wb') as f:
+with open('results_pyzx/diff_arbitrary_10000_'+add_save+'.pkl', 'wb') as f:
     pickle.dump(diff_arbitrary_pyzx_greedy, f)
