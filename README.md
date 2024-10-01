@@ -1,5 +1,5 @@
 # ZXreinforce
-This project contains the code used to produce the results in the two publications: "Optimizing ZX-Diagrams with Deep Reinforcement Learning" (arxiv.org/abs/2311.18588) and "Tackling Decision Processes with Non-Cumulative Objectives using Reinforcement Learning" (https://arxiv.org/abs/2405.13609).
+This project contains the code used to produce the results in the two publications: "Optimizing ZX-Diagrams with Deep Reinforcement Learning" (https://doi.org/10.1088/2632-2153/ad76f7) and "Tackling Decision Processes with Non-Cumulative Objectives using Reinforcement Learning" (https://arxiv.org/abs/2405.13609).
 
 * Main code of the algorithm is in zxreinforce
 
@@ -21,12 +21,17 @@ To run this code install the requirements.txt or use the docker image as describ
 
 ## Citation
 ``` bib
-@article{nagele_optimizing_2023,
-  title={Optimizing {ZX}-Diagrams with Deep Reinforcement Learning},
-  author={N\"agele, Maximilian and Marquardt, Florian},
-  url = {https://arxiv.org/abs/2311.18588},
-  doi = {10.48550/arXiv.2311.18588}
-  journal={arXiv},
-  year = {2023},
+@article{Nagele_2024_Opt,
+doi = {10.1088/2632-2153/ad76f7},
+url = {https://dx.doi.org/10.1088/2632-2153/ad76f7},
+year = {2024},
+month = {sep},
+publisher = {IOP Publishing},
+volume = {5},
+number = {3},
+pages = {035077},
+author = {Maximilian N\"agele and Florian Marquardt},
+title = {Optimizing {ZX}-diagrams with deep reinforcement learning},
+journal = {Machine Learning: Science and Technology},
 }
 ```
